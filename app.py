@@ -29,10 +29,20 @@ lock = threading.Lock()
 
 
 def pegar_texto(data):
-    for campo in ["text", "body", "caption"]:
+    # Caso da Z-API: text é um dict com chave 'message'
+    text_field = data.get("text")
+    if isinstance(text_field, dict):
+        val = text_field.get("message")
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+    if isinstance(text_field, str) and text_field.strip():
+        return text_field.strip()
+
+    for campo in ["body", "caption"]:
         val = data.get(campo)
         if isinstance(val, str) and val.strip():
             return val.strip()
+
     msg = data.get("message")
     if isinstance(msg, str) and msg.strip():
         return msg.strip()
