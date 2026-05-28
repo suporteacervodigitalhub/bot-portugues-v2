@@ -132,7 +132,7 @@ def webhook():
         print("[IGNORADO] sem gatilho")
         return jsonify(ok=True), 200
 
-    chave = f"{phone}_{oferta_encontrada['gatilho'][:20]}"
+    chave = f"{phone}_{oferta_encontrada['gatilho']}"
     with lock:
         if chave in respondidos:
             print(f"[IGNORADO] duplicata: {chave}")
