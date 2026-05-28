@@ -9,18 +9,38 @@ app = Flask(__name__)
 ZAPI_SEND_URL = "https://api.z-api.io/instances/3F19CAAD49BB72F03C799E648AE68DF9/token/B77E6A0990899214EF21731D/send-text"
 CLIENT_TOKEN  = "Ff0e29d550df049589cb4086ac3d8b843S"
 
-FRASE_GATILHO  = "fiquei interessada nas +300 dinâmicas de português"
-DELAY_SEGUNDOS = 90
+DELAY_SEGUNDOS = 60
 
-MENSAGEM = """Oi! 👋 Que bom que você veio aqui, isso me diz que você é uma professora que leva o Português a sério, e eu quero te dar um presente por isso 🎁
-
-Como você veio pelo WhatsApp, vou liberar pra você o Pacote Completo por apenas R$9,90, um desconto especial só pra quem chegou até mim pessoalmente.
-
-No Pacote Completo você leva tudo: as +300 dinâmicas de Português prontas pra aplicar, organizadas por tema e faixa etária, mais todos os bônus exclusivos. Tudo pronto pra imprimir e usar amanhã na sua aula. 📚✨
-
-Aqui está o link pra garantir agora: https://pay.wiapy.com/r2pvsFeMId
-
-Qualquer dúvida é só falar aqui, tô aqui pra te ajudar! 🤗"""
+OFERTAS = [
+    {
+        "gatilho": "fiquei interessada nas +300 dinâmicas de português",
+        "mensagem": (
+            "Oi! 👋 Que bom que você veio aqui, isso me diz que você é uma professora que leva o Português a sério, "
+            "e eu quero te dar um presente por isso 🎁\n\n"
+            "Como você veio pelo WhatsApp, vou liberar pra você o Pacote Completo por apenas R$9,90, "
+            "um desconto especial só pra quem chegou até mim pessoalmente.\n\n"
+            "No Pacote Completo você leva tudo: as +300 dinâmicas de Português prontas pra aplicar, "
+            "organizadas por tema e faixa etária, mais todos os bônus exclusivos. "
+            "Tudo pronto pra imprimir e usar amanhã na sua aula. 📚✨\n\n"
+            "Aqui está o link pra garantir agora: https://pay.wiapy.com/r2pvsFeMId\n\n"
+            "Qualquer dúvida é só falar aqui, tô aqui pra te ajudar! 🤗"
+        ),
+    },
+    {
+        "gatilho": "fiquei interessada no calculando com as 4 operações",
+        "mensagem": (
+            "Oi! 👋 Que bom que você veio aqui, isso me diz que você é uma professora que leva o aprendizado "
+            "das crianças a sério, e eu quero te dar um presente por isso 🎁\n\n"
+            "Como você veio pelo WhatsApp, vou liberar pra você o Pacote Completo por apenas R$9,90, "
+            "um desconto especial só pra quem chegou até mim pessoalmente.\n\n"
+            "No Pacote Completo você leva tudo: as 4 pranchas visuais do Calculando com as 4 Operações, "
+            "mais todos os bônus exclusivos com jogos pedagógicos, desafios de raciocínio e planos de aula completos. "
+            "Tudo pronto pra imprimir e usar amanhã com as suas crianças. ➕➖✖️➗\n\n"
+            "Aqui está o link pra garantir agora: https://pay.wiapy.com/mtmD_GFQ5p\n\n"
+            "Qualquer dúvida é só falar aqui, tô aqui pra te ajudar! 🤗"
+        ),
+    },
+]
 
 PALAVRAS_BLOQUEIO = ["reembolso", "cancelar", "estorno", "devolver", "chargeback"]
 
@@ -29,7 +49,6 @@ lock = threading.Lock()
 
 
 def pegar_texto(data):
-    # Caso da Z-API: text é um dict com chave 'message'
     text_field = data.get("text")
     if isinstance(text_field, dict):
         val = text_field.get("message")
@@ -103,24 +122,36 @@ def webhook():
             print(f"[IGNORADO] bloqueio: {p}")
             return jsonify(ok=True), 200
 
-    if FRASE_GATILHO not in lower:
+    oferta_encontrada = None
+    for oferta in OFERTAS:
+        if oferta["gatilho"] in lower:
+            oferta_encontrada = oferta
+            break
+
+    if not oferta_encontrada:
         print("[IGNORADO] sem gatilho")
         return jsonify(ok=True), 200
 
+    chave = f"{phone}_{oferta_encontrada['gatilho'][:20]}"
     with lock:
-        if phone in respondidos:
-            print(f"[IGNORADO] duplicata: {phone}")
+        if chave in respondidos:
+            print(f"[IGNORADO] duplicata: {chave}")
             return jsonify(ok=True), 200
-        respondidos.add(phone)
+        respondidos.add(chave)
 
-    threading.Thread(target=enviar, args=(phone, MENSAGEM), daemon=True).start()
-    print(f"[AGENDADO] {phone} em {DELAY_SEGUNDOS}s")
+    threading.Thread(
+        target=enviar,
+        args=(phone, oferta_encontrada["mensagem"]),
+        daemon=True
+    ).start()
+
+    print(f"[AGENDADO] {phone} | oferta: {oferta_encontrada['gatilho'][:40]} | em {DELAY_SEGUNDOS}s")
     return jsonify(ok=True), 200
 
 
 @app.route("/", methods=["GET"])
 def health():
-    return jsonify(status="ativo", bot="+300 Dinamicas de Portugues"), 200
+    return jsonify(status="ativo", ofertas=len(OFERTAS)), 200
 
 
 if __name__ == "__main__":
